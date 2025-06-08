@@ -1,4 +1,4 @@
-name: Kotlin Build and Publish Library
+name: Maven Build & Publish Library
 
 on:
   workflow_call:
