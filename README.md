@@ -26,8 +26,6 @@ jobs:
     uses: tajacks/github-workflows/.github/workflows/kotlin-build-package-library.yml
     with:
       java-version: '21'  # Optional, defaults to '21'
-    secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 **No additional Maven configuration required** - the workflow handles deployment configuration automatically.

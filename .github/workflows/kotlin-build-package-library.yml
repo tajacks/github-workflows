@@ -8,10 +8,6 @@ on:
         required: false
         type: string
         default: '21'
-    secrets:
-      GITHUB_TOKEN:
-        description: 'GitHub token for package publishing'
-        required: true
 
 jobs:
   build-test-package:
@@ -73,4 +69,4 @@ jobs:
     - name: Publish to GitHub Packages
       run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ github.token }}
