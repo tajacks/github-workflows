@@ -91,7 +91,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
         echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### View Package" >> $GITHUB_STEP_SUMMARY
         echo "[View on GitHub Packages](https://github.com/${{ github.repository }}/packages)" >> $GITHUB_STEP_SUMMARY
