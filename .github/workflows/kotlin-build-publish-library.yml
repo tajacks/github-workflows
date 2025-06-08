@@ -1,4 +1,4 @@
-name: Kotlin Build and Package Library
+name: Kotlin Build and Publish Library
 
 on:
   workflow_call:
@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 jobs:
-  build-test-package:
+  build-test-publish:
     runs-on: ubuntu-latest
     
     steps:
@@ -36,7 +36,7 @@ jobs:
         java-version: ${{ inputs.java-version }}
         distribution: 'temurin'
         
-    - name: Cache Maven packages
+    - name: Cache Maven dependencies
       uses: actions/cache@v3
       with:
         path: ~/.m2
@@ -71,6 +71,6 @@ jobs:
       run: ./mvnw package -DskipTests
       
     - name: Publish to GitHub Packages
-      run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }}
+      run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ github.token }}
