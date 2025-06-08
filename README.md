@@ -4,11 +4,11 @@ Personal, Reusable, GitHub Workflows.
 
 ## Available Workflows
 
-### Kotlin Build and Publish Library
+### Maven Build and Publish Library
 
 **Location:** `.github/workflows/kotlin-build-publish-library.yml`
 
-Builds, tests, and publishes Kotlin/Java libraries using Maven for distribution to GitHub Packages.
+Builds, tests, and publishes Kotlin/Java libraries using Maven. Distributes via GitHub Packages.
 
 **Usage Example:**
 
@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   build-and-publish:
-    uses: tajacks/github-workflows/.github/workflows/kotlin-build-publish-library.yml
+    uses: tajacks/github-workflows/.github/workflows/maven-build-publish-library.yml
     with:
       java-version: '21'  # Optional, defaults to '21'
 ```
