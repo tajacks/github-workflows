@@ -74,3 +74,34 @@ jobs:
       run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+        ARTIFACT_ID=$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+        GROUP_ID=$(./mvnw help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "artifactId=$ARTIFACT_ID" >> $GITHUB_OUTPUT
+        echo "groupId=$GROUP_ID" >> $GITHUB_OUTPUT
+        
+    - name: Create job summary
+      run: |
+        echo "## Maven Library Published Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### View Package" >> $GITHUB_STEP_SUMMARY
+        echo "[View on GitHub Packages](https://github.com/${{ github.repository }}/packages)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Usage" >> $GITHUB_STEP_SUMMARY
+        echo "Add this dependency to your \`pom.xml\`:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`xml" >> $GITHUB_STEP_SUMMARY
+        echo "<dependency>" >> $GITHUB_STEP_SUMMARY
+        echo "  <groupId>${{ steps.version.outputs.groupId }}</groupId>" >> $GITHUB_STEP_SUMMARY
+        echo "  <artifactId>${{ steps.version.outputs.artifactId }}</artifactId>" >> $GITHUB_STEP_SUMMARY
+        echo "  <version>${{ steps.version.outputs.version }}</version>" >> $GITHUB_STEP_SUMMARY
+        echo "</dependency>" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
