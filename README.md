@@ -6,7 +6,7 @@ Personal, Reusable, GitHub Workflows.
 
 ### Maven Build and Publish Library
 
-**Location:** `.github/workflows/kotlin-build-publish-library.yml`
+**Location:** `.github/workflows/maven-build-publish-library.yml`
 
 Builds, tests, and publishes Kotlin/Java libraries using Maven. Distributes via GitHub Packages.
 
