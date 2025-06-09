@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: '21'
+      publish-snapshots:
+        description: 'Force publishing of SNAPSHOT versions'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -70,11 +75,6 @@ jobs:
     - name: Package artifact
       run: ./mvnw package -DskipTests
       
-    - name: Publish to GitHub Packages
-      run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-
     - name: Extract version
       id: version
       run: |
@@ -85,23 +85,46 @@ jobs:
         echo "artifactId=$ARTIFACT_ID" >> $GITHUB_OUTPUT
         echo "groupId=$GROUP_ID" >> $GITHUB_OUTPUT
         
+        # Check if version is SNAPSHOT
+        if [[ "$VERSION" == *"-SNAPSHOT" ]]; then
+          echo "isSnapshot=true" >> $GITHUB_OUTPUT
+        else
+          echo "isSnapshot=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Publish to GitHub Packages
+      if: steps.version.outputs.isSnapshot == 'false' || inputs.publish-snapshots == true
+      run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        
     - name: Create job summary
       run: |
-        echo "## Maven Library Published Successfully" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### View Package" >> $GITHUB_STEP_SUMMARY
-        echo "[View on GitHub Packages](https://github.com/${{ github.repository }}/packages)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Usage" >> $GITHUB_STEP_SUMMARY
-        echo "Add this dependency to your \`pom.xml\`:" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`xml" >> $GITHUB_STEP_SUMMARY
-        echo "<dependency>" >> $GITHUB_STEP_SUMMARY
-        echo "  <groupId>${{ steps.version.outputs.groupId }}</groupId>" >> $GITHUB_STEP_SUMMARY
-        echo "  <artifactId>${{ steps.version.outputs.artifactId }}</artifactId>" >> $GITHUB_STEP_SUMMARY
-        echo "  <version>${{ steps.version.outputs.version }}</version>" >> $GITHUB_STEP_SUMMARY
-        echo "</dependency>" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.version.outputs.isSnapshot }}" == "true" && "${{ inputs.publish-snapshots }}" != "true" ]]; then
+          echo "## Maven Library Build Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** Build successful, SNAPSHOT version not published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "SNAPSHOT versions are not published by default. To publish SNAPSHOTs, set \`publish-snapshots: true\`." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "## Maven Library Published Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### View Package" >> $GITHUB_STEP_SUMMARY
+          echo "[View on GitHub Packages](https://github.com/${{ github.repository }}/packages)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Usage" >> $GITHUB_STEP_SUMMARY
+          echo "Add this dependency to your \`pom.xml\`:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`xml" >> $GITHUB_STEP_SUMMARY
+          echo "<dependency>" >> $GITHUB_STEP_SUMMARY
+          echo "  <groupId>${{ steps.version.outputs.groupId }}</groupId>" >> $GITHUB_STEP_SUMMARY
+          echo "  <artifactId>${{ steps.version.outputs.artifactId }}</artifactId>" >> $GITHUB_STEP_SUMMARY
+          echo "  <version>${{ steps.version.outputs.version }}</version>" >> $GITHUB_STEP_SUMMARY
+          echo "</dependency>" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        fi

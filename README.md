@@ -30,9 +30,15 @@ jobs:
     uses: tajacks/github-workflows/.github/workflows/maven-build-publish-library.yml
     with:
       java-version: '21'  # Optional, defaults to '21'
+      publish-snapshots: false  # Optional, defaults to false
 ```
 
 **No additional Maven configuration required** - the workflow handles deployment configuration automatically.
+
+**Publishing Behavior:**
+- **Release versions** (non-SNAPSHOT): Always published to GitHub Packages
+- **SNAPSHOT versions**: Only published when `publish-snapshots: true` is set
+- This prevents accidental SNAPSHOT uploads during development while allowing controlled SNAPSHOT releases for testing
 
 **Required Setup:**
 
