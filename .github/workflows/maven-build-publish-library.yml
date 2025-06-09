@@ -93,10 +93,41 @@ jobs:
         fi
         
     - name: Publish to GitHub Packages
-      if: steps.version.outputs.isSnapshot == 'false' || inputs.publish-snapshots == true
+      if: |
+        (steps.version.outputs.isSnapshot == 'false' && (github.ref_name == 'main' || github.ref_name == 'master')) ||
+        (steps.version.outputs.isSnapshot == 'true' && inputs.publish-snapshots == true)
       run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ github.token }}
+        
+    - name: Create GitHub Release
+      if: steps.version.outputs.isSnapshot == 'false' && (github.ref_name == 'main' || github.ref_name == 'master')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        release_name: Release ${{ steps.version.outputs.version }}
+        body: |
+          ## Maven Library Release ${{ steps.version.outputs.version }}
+          
+          **Artifact:** `${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}`
+          **Version:** `${{ steps.version.outputs.version }}`
+          
+          ### View Package
+          [View on GitHub Packages](https://github.com/${{ github.repository }}/packages)
+          
+          ### Usage
+          Add this dependency to your `pom.xml`:
+          ```xml
+          <dependency>
+            <groupId>${{ steps.version.outputs.groupId }}</groupId>
+            <artifactId>${{ steps.version.outputs.artifactId }}</artifactId>
+            <version>${{ steps.version.outputs.version }}</version>
+          </dependency>
+          ```
+        draft: false
+        prerelease: false
         
     - name: Create job summary
       run: |

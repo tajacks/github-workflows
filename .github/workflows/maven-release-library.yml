@@ -1,0 +1,209 @@
+name: Maven Release Library
+# Version: 1.0.0
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-type:
+        description: 'Type of release'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Validate branch
+      run: |
+        if [[ "${{ github.ref_name }}" != "main" && "${{ github.ref_name }}" != "master" ]]; then
+          echo "Error: Releases can only be created from main or master branch"
+          echo "Current branch: ${{ github.ref_name }}"
+          exit 1
+        fi
+    
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ github.token }}
+      
+    - name: Verify Maven wrapper exists
+      run: |
+        if [ ! -f "./mvnw" ]; then
+          echo "Error: Maven wrapper (mvnw) not found in repository"
+          exit 1
+        fi
+      
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: 'temurin'
+        
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Make Maven wrapper executable
+      run: chmod +x ./mvnw
+      
+    - name: Get current version
+      id: current-version
+      run: |
+        CURRENT_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+        echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        
+        if [[ ! "$CURRENT_VERSION" == *"-SNAPSHOT" ]]; then
+          echo "Error: Current version '$CURRENT_VERSION' is not a SNAPSHOT version"
+          echo "Releases can only be created from SNAPSHOT versions"
+          exit 1
+        fi
+        
+    - name: Calculate release version
+      id: release-version
+      run: |
+        CURRENT_VERSION="${{ steps.current-version.outputs.version }}"
+        BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+        
+        IFS='.' read -ra VERSION_PARTS <<< "$BASE_VERSION"
+        MAJOR=${VERSION_PARTS[0]}
+        MINOR=${VERSION_PARTS[1]:-0}
+        PATCH=${VERSION_PARTS[2]:-0}
+        
+        case "${{ inputs.release-type }}" in
+          "major")
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          "minor")
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          "patch")
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+        
+        RELEASE_VERSION="$MAJOR.$MINOR.$PATCH"
+        NEXT_SNAPSHOT_VERSION="$MAJOR.$MINOR.$((PATCH + 1))-SNAPSHOT"
+        
+        echo "release=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+        echo "next-snapshot=$NEXT_SNAPSHOT_VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+    - name: Create release branch
+      run: |
+        BRANCH_NAME="release/v${{ steps.release-version.outputs.release }}"
+        git checkout -b "$BRANCH_NAME"
+        echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+      id: branch
+        
+    - name: Set release version
+      run: |
+        ./mvnw versions:set -DnewVersion=${{ steps.release-version.outputs.release }} -DgenerateBackupPoms=false
+        
+    - name: Verify release build
+      run: ./mvnw clean verify
+      
+    - name: Commit release version
+      run: |
+        git add pom.xml
+        git commit -m "Release version ${{ steps.release-version.outputs.release }}"
+        git tag -a "v${{ steps.release-version.outputs.release }}" -m "Release version ${{ steps.release-version.outputs.release }}"
+        
+    - name: Set next SNAPSHOT version
+      run: |
+        ./mvnw versions:set -DnewVersion=${{ steps.release-version.outputs.next-snapshot }} -DgenerateBackupPoms=false
+        
+    - name: Commit next SNAPSHOT version
+      run: |
+        git add pom.xml
+        git commit -m "Prepare next development iteration ${{ steps.release-version.outputs.next-snapshot }}"
+        
+    - name: Push release branch
+      run: |
+        git push origin ${{ steps.branch.outputs.branch-name }}
+        git push origin "v${{ steps.release-version.outputs.release }}"
+        
+    - name: Extract artifact information
+      id: artifact
+      run: |
+        # Reset to release commit to get release version info
+        git checkout HEAD~1
+        ARTIFACT_ID=$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+        GROUP_ID=$(./mvnw help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+        echo "artifactId=$ARTIFACT_ID" >> $GITHUB_OUTPUT
+        echo "groupId=$GROUP_ID" >> $GITHUB_OUTPUT
+        git checkout ${{ steps.branch.outputs.branch-name }}
+        
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ github.token }}
+        branch: ${{ steps.branch.outputs.branch-name }}
+        title: "Release version ${{ steps.release-version.outputs.release }}"
+        body: |
+          ## Release ${{ steps.release-version.outputs.release }}
+          
+          This PR contains the release commits for version ${{ steps.release-version.outputs.release }}.
+          
+          **Release Type:** ${{ inputs.release-type }}
+          **Artifact:** `${{ steps.artifact.outputs.groupId }}:${{ steps.artifact.outputs.artifactId }}`
+          **Current Version:** `${{ steps.current-version.outputs.version }}`
+          **Release Version:** `${{ steps.release-version.outputs.release }}`
+          **Next Version:** `${{ steps.release-version.outputs.next-snapshot }}`
+          
+          ### Changes in this PR:
+          - Bump version from `${{ steps.current-version.outputs.version }}` to `${{ steps.release-version.outputs.release }}`
+          - Create Git tag `v${{ steps.release-version.outputs.release }}`
+          - Prepare next development iteration `${{ steps.release-version.outputs.next-snapshot }}`
+          
+          ### What happens when merged:
+          - Release version will be automatically published to GitHub Packages
+          - GitHub Release will be created automatically
+          - Repository will be ready for next development cycle
+          
+          **Please review and merge to complete the release process.**
+        draft: false
+        delete-branch: true
+        
+    - name: Create job summary
+      run: |
+        echo "## Release PR Created Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Release Version:** \`${{ steps.release-version.outputs.release }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Release Type:** ${{ inputs.release-type }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Artifact:** \`${{ steps.artifact.outputs.groupId }}:${{ steps.artifact.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Next Development Version:** \`${{ steps.release-version.outputs.next-snapshot }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Release Branch:** \`${{ steps.branch.outputs.branch-name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "1. Review the created pull request" >> $GITHUB_STEP_SUMMARY
+        echo "2. Merge the PR to complete the release" >> $GITHUB_STEP_SUMMARY
+        echo "3. The build workflow will automatically publish the release and create a GitHub Release" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Git Tag Created" >> $GITHUB_STEP_SUMMARY
+        echo "Tag \`v${{ steps.release-version.outputs.release }}\` has been created and pushed." >> $GITHUB_STEP_SUMMARY
