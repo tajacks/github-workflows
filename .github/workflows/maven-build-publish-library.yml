@@ -1,0 +1,130 @@
+name: Maven Build & Publish Library
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: 'Java version to use'
+        required: false
+        type: string
+        default: '21'
+      publish-snapshots:
+        description: 'Force publishing of SNAPSHOT versions'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+      
+    - name: Verify Maven wrapper exists
+      run: |
+        if [ ! -f "./mvnw" ]; then
+          echo "Error: Maven wrapper (mvnw) not found in repository"
+          exit 1
+        fi
+      
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: 'temurin'
+        
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Make Maven wrapper executable
+      run: chmod +x ./mvnw
+      
+    - name: Configure Maven settings for GitHub Packages
+      run: |
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml << 'EOF'
+        <settings>
+          <servers>
+            <server>
+              <id>github</id>
+              <username>${env.GITHUB_ACTOR}</username>
+              <password>${env.GITHUB_TOKEN}</password>
+            </server>
+          </servers>
+        </settings>
+        EOF
+      
+    - name: Build project
+      run: ./mvnw clean compile
+      
+    - name: Run tests
+      run: ./mvnw test
+      
+    - name: Package artifact
+      run: ./mvnw package -DskipTests
+      
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+        ARTIFACT_ID=$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+        GROUP_ID=$(./mvnw help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "artifactId=$ARTIFACT_ID" >> $GITHUB_OUTPUT
+        echo "groupId=$GROUP_ID" >> $GITHUB_OUTPUT
+        
+        # Check if version is SNAPSHOT
+        if [[ "$VERSION" == *"-SNAPSHOT" ]]; then
+          echo "isSnapshot=true" >> $GITHUB_OUTPUT
+        else
+          echo "isSnapshot=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Publish to GitHub Packages
+      if: steps.version.outputs.isSnapshot == 'false' || inputs.publish-snapshots == true
+      run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        
+    - name: Create job summary
+      run: |
+        if [[ "${{ steps.version.outputs.isSnapshot }}" == "true" && "${{ inputs.publish-snapshots }}" != "true" ]]; then
+          echo "## Maven Library Build Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** Build successful, SNAPSHOT version not published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "SNAPSHOT versions are not published by default. To publish SNAPSHOTs, set \`publish-snapshots: true\`." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "## Maven Library Published Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### View Package" >> $GITHUB_STEP_SUMMARY
+          echo "[View on GitHub Packages](https://github.com/${{ github.repository }}/packages)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Usage" >> $GITHUB_STEP_SUMMARY
+          echo "Add this dependency to your \`pom.xml\`:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`xml" >> $GITHUB_STEP_SUMMARY
+          echo "<dependency>" >> $GITHUB_STEP_SUMMARY
+          echo "  <groupId>${{ steps.version.outputs.groupId }}</groupId>" >> $GITHUB_STEP_SUMMARY
+          echo "  <artifactId>${{ steps.version.outputs.artifactId }}</artifactId>" >> $GITHUB_STEP_SUMMARY
+          echo "  <version>${{ steps.version.outputs.version }}</version>" >> $GITHUB_STEP_SUMMARY
+          echo "</dependency>" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        fi
