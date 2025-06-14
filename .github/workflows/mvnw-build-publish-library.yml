@@ -44,14 +44,35 @@ jobs:
     - name: Cache Maven dependencies
       uses: actions/cache@v4
       with:
-        path: ~/.m2
+        path: ~/.m2/repository
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
         
     - name: Make Maven wrapper executable
       run: chmod +x ./mvnw
       
+    - name: Build, test, and package
+      run: ./mvnw clean verify --batch-mode --no-transfer-progress
+      
+    - name: Extract version & determine publishing eligibility
+      id: version
+      run: |
+        VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout --batch-mode)
+        ARTIFACT_ID=$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout --batch-mode)
+        GROUP_ID=$(./mvnw help:evaluate -Dexpression=project.groupId -q -DforceStdout --batch-mode)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "artifactId=$ARTIFACT_ID" >> $GITHUB_OUTPUT
+        echo "groupId=$GROUP_ID" >> $GITHUB_OUTPUT
+        
+        # Determine if we should publish
+        if [[ "$VERSION" != *"-SNAPSHOT" || "${{ inputs.publish-snapshots }}" == "true" ]]; then
+          echo "shouldPublish=true" >> $GITHUB_OUTPUT
+        else
+          echo "shouldPublish=false" >> $GITHUB_OUTPUT
+        fi
+        
     - name: Configure Maven settings for GitHub Packages
+      if: steps.version.outputs.shouldPublish == 'true'
       run: |
         mkdir -p ~/.m2
         cat > ~/.m2/settings.xml << 'EOF'
@@ -65,42 +86,16 @@ jobs:
           </servers>
         </settings>
         EOF
-      
-    - name: Build project
-      run: ./mvnw clean compile
-      
-    - name: Run tests
-      run: ./mvnw test
-      
-    - name: Package artifact
-      run: ./mvnw package -DskipTests
-      
-    - name: Extract version
-      id: version
-      run: |
-        VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
-        ARTIFACT_ID=$(./mvnw help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
-        GROUP_ID=$(./mvnw help:evaluate -Dexpression=project.groupId -q -DforceStdout)
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "artifactId=$ARTIFACT_ID" >> $GITHUB_OUTPUT
-        echo "groupId=$GROUP_ID" >> $GITHUB_OUTPUT
-        
-        # Check if version is SNAPSHOT
-        if [[ "$VERSION" == *"-SNAPSHOT" ]]; then
-          echo "isSnapshot=true" >> $GITHUB_OUTPUT
-        else
-          echo "isSnapshot=false" >> $GITHUB_OUTPUT
-        fi
         
     - name: Publish to GitHub Packages
-      if: steps.version.outputs.isSnapshot == 'false' || inputs.publish-snapshots == true
-      run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }}
+      if: steps.version.outputs.shouldPublish == 'true'
+      run: ./mvnw deploy -DskipTests -DaltDeploymentRepository=github::https://maven.pkg.github.com/${{ github.repository }} --batch-mode --no-transfer-progress
       env:
         GITHUB_TOKEN: ${{ github.token }}
         
     - name: Create job summary
       run: |
-        if [[ "${{ steps.version.outputs.isSnapshot }}" == "true" && "${{ inputs.publish-snapshots }}" != "true" ]]; then
+        if [[ "${{ steps.version.outputs.shouldPublish }}" == "false" ]]; then
           echo "## Maven Library Build Completed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Artifact:** \`${{ steps.version.outputs.groupId }}:${{ steps.version.outputs.artifactId }}\`" >> $GITHUB_STEP_SUMMARY
