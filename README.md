@@ -6,9 +6,10 @@ Personal, Reusable, GitHub Workflows.
 
 ### Maven Build and Publish Library
 
-**Location:** `.github/workflows/maven-build-publish-library.yml`
+**Location:** `.github/workflows/mvnw-build-publish-library.yml`
 
-Builds, tests, and publishes Kotlin/Java libraries using Maven. Distributes via GitHub Packages.
+Builds, tests, and publishes Kotlin/Java libraries using a provided Maven wrapper. Conditionally publishes to GitHub 
+Packages.
 
 **Usage Example:**
 
@@ -27,7 +28,7 @@ permissions:
 
 jobs:
   build-and-publish:
-    uses: tajacks/github-workflows/.github/workflows/maven-build-publish-library.yml
+    uses: tajacks/github-workflows/.github/workflows/mvnw-build-publish-library.yml
     with:
       java-version: '21'  # Optional, defaults to '21'
       publish-snapshots: false  # Optional, defaults to false
