@@ -78,4 +78,3 @@ jobs:
             >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ steps.project.outputs.version }}\`" \
             >> $GITHUB_STEP_SUMMARY
-          echo "**Status:** Build and tests completed successfully" >> $GITHUB_STEP_SUMMARY
