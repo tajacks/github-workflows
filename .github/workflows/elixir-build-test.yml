@@ -65,8 +65,8 @@ jobs:
       - name: Extract project info
         id: project
         run: |
-          APP_NAME=$(grep -oP 'app: :\K\w+' mix.exs | head -1)
-          VERSION=$(grep -oP 'version: "\K[^"]+' mix.exs | head -1)
+          APP_NAME=$(mix eval 'IO.puts Mix.Project.config[:app]')
+          VERSION=$(mix eval 'IO.puts Mix.Project.config[:version]')
           echo "appName=$APP_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
