@@ -67,6 +67,10 @@ jobs:
         run: |
           APP_NAME=$(mix eval 'IO.puts Mix.Project.config[:app]')
           VERSION=$(mix eval 'IO.puts Mix.Project.config[:version]')
+          if [ -z "$APP_NAME" ] || [ -z "$VERSION" ]; then
+            echo "Error: Failed to extract app name or version from mix.exs"
+            exit 1
+          fi
           echo "appName=$APP_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
