@@ -29,9 +29,20 @@ jobs:
     uses: tajacks/github-workflows/.github/workflows/elixir-build-test.yml@main
 ```
 
+**With custom versions:**
+
+```yaml
+jobs:
+  build-and-test:
+    uses: tajacks/github-workflows/.github/workflows/elixir-build-test.yml@main
+    with:
+      elixir-version: '1.17.0'
+      otp-version: '26'
+```
+
 **What it does:**
 - Validates that `mix.exs` exists in the repository
-- Sets up Elixir 1.15 and OTP 26
+- Sets up Elixir (default: 1.18.4) and OTP (default: 27) with configurable versions
 - Caches Mix dependencies for faster builds
 - Installs project dependencies with `mix deps.get`
 - Checks code formatting with `mix format --check-formatted`
@@ -39,7 +50,11 @@ jobs:
 - Runs the test suite with `mix test`
 - Provides a comprehensive build summary
 
-**No additional configuration required** - the workflow works out of the box for standard Elixir projects.
+**Configuration Options:**
+- `elixir-version`: Elixir version to use (default: '1.18.4')
+- `otp-version`: OTP version to use (default: '27')
+
+**No additional configuration required** - the workflow works out of the box for standard Elixir projects with sensible defaults.
 
 ### Maven Build and Publish Library
 

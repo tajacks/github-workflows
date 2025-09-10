@@ -78,10 +78,4 @@ jobs:
             >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ steps.project.outputs.version }}\`" \
             >> $GITHUB_STEP_SUMMARY
-          echo "**Status:** Build and tests successful" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Completed Steps" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Dependencies installed" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Code formatting validated" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Project compiled successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** Build and tests completed successfully" >> $GITHUB_STEP_SUMMARY
