@@ -1,0 +1,76 @@
+name: Elixir Build & Test
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Verify mix.exs exists
+        run: |
+          if [ ! -f "./mix.exs" ]; then
+            echo "Error: mix.exs not found in repository"
+            exit 1
+          fi
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.15'
+          otp-version: '26'
+
+      - name: Cache Mix dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Compile project
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        run: mix test
+
+      - name: Extract project info
+        id: project
+        run: |
+          APP_NAME=$(grep -oP 'app: :\K\w+' mix.exs | head -1)
+          VERSION=$(grep -oP 'version: "\K[^"]+' mix.exs | head -1)
+          echo "appName=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create job summary
+        run: |
+          echo "## Elixir Build & Test Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Application:** \`${{ steps.project.outputs.appName }}\`" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.project.outputs.version }}\`" \
+            >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** Build and tests successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Completed Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dependencies installed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code formatting validated" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Project compiled successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ All tests passed" >> $GITHUB_STEP_SUMMARY

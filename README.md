@@ -4,6 +4,43 @@ Personal, Reusable, GitHub Workflows.
 
 ## Available Workflows
 
+### Elixir Build & Test
+
+**Location:** `.github/workflows/elixir-build-test.yml`
+
+Builds and tests Elixir projects using Mix. Performs dependency installation, code formatting validation, compilation, and test execution.
+
+**Usage Example:**
+
+```yaml
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    uses: tajacks/github-workflows/.github/workflows/elixir-build-test.yml@main
+```
+
+**What it does:**
+- Validates that `mix.exs` exists in the repository
+- Sets up Elixir 1.15 and OTP 26
+- Caches Mix dependencies for faster builds
+- Installs project dependencies with `mix deps.get`
+- Checks code formatting with `mix format --check-formatted`
+- Compiles the project with warnings as errors
+- Runs the test suite with `mix test`
+- Provides a comprehensive build summary
+
+**No additional configuration required** - the workflow works out of the box for standard Elixir projects.
+
 ### Maven Build and Publish Library
 
 **Location:** `.github/workflows/mvnw-build-publish-library.yml`
