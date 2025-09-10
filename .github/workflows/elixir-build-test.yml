@@ -78,7 +78,5 @@ jobs:
         run: |
           echo "## Elixir Build & Test Completed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Application:** \`${{ steps.project.outputs.appName }}\`" \
-            >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** \`${{ steps.project.outputs.version }}\`" \
-            >> $GITHUB_STEP_SUMMARY
+          echo "**Application:** \`${{ steps.project.outputs.appName }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.project.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
