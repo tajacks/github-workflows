@@ -53,6 +53,7 @@ jobs:
 **Configuration Options:**
 - `elixir-version`: Elixir version to use (default: '1.18.4')
 - `otp-version`: OTP version to use (default: '27')
+
 ### Maven Build and Publish Library
 
 **Location:** `.github/workflows/mvnw-build-publish-library.yml`
