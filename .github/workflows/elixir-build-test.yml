@@ -1,0 +1,82 @@
+name: Elixir Build & Test
+
+on:
+  workflow_call:
+    inputs:
+      elixir-version:
+        description: 'Elixir version to use'
+        required: false
+        type: string
+        default: '1.18.4'
+      otp-version:
+        description: 'OTP version to use'
+        required: false
+        type: string
+        default: '27'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Verify mix.exs exists
+        run: |
+          if [ ! -f "./mix.exs" ]; then
+            echo "Error: mix.exs not found in repository"
+            exit 1
+          fi
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ inputs.elixir-version }}
+          otp-version: ${{ inputs.otp-version }}
+
+      - name: Cache Mix dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Compile project
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        run: mix test
+
+      - name: Extract project info
+        id: project
+        run: |
+          APP_NAME=$(mix eval 'IO.puts Mix.Project.config[:app]')
+          VERSION=$(mix eval 'IO.puts Mix.Project.config[:version]')
+          if [ -z "$APP_NAME" ] || [ -z "$VERSION" ]; then
+            echo "Error: Failed to extract app name or version from mix.exs"
+            exit 1
+          fi
+          echo "appName=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create job summary
+        run: |
+          echo "## Elixir Build & Test Completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Application:** \`${{ steps.project.outputs.appName }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.project.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
