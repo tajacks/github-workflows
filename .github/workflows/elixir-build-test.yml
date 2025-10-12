@@ -22,13 +22,12 @@ on:
 permissions:
   contents: read
 
-env:
-  MIX_ENV: test
-
 jobs:
   test:
     name: Build and Test
     runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
 
     steps:
       - name: Checkout code
@@ -90,6 +89,8 @@ jobs:
   format:
     name: Check Formatting
     runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
 
     steps:
       - name: Checkout code
@@ -123,6 +124,8 @@ jobs:
     name: Lint (Credo)
     runs-on: ubuntu-latest
     if: ${{ inputs.enable-credo }}
+    env:
+      MIX_ENV: test
 
     steps:
       - name: Checkout code
