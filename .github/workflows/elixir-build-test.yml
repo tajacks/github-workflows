@@ -13,13 +13,21 @@ on:
         required: false
         type: string
         default: '27'
+      enable-credo:
+        description: 'Enable Credo linting'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  test:
+    name: Build and Test
     runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
 
     steps:
       - name: Checkout code
@@ -53,9 +61,6 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
-      - name: Check formatting
-        run: mix format --check-formatted
-
       - name: Compile project
         run: mix compile --warnings-as-errors
 
@@ -80,3 +85,72 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Application:** \`${{ steps.project.outputs.appName }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ steps.project.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ inputs.elixir-version }}
+          otp-version: ${{ inputs.otp-version }}
+
+      - name: Cache Mix dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+  lint:
+    name: Lint (Credo)
+    runs-on: ubuntu-latest
+    if: ${{ inputs.enable-credo }}
+    env:
+      MIX_ENV: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ inputs.elixir-version }}
+          otp-version: ${{ inputs.otp-version }}
+
+      - name: Cache Mix dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Run Credo
+        run: mix credo --strict
